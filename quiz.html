@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanmay’s Favorites – 5 Lives Challenge</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        :root {
+            --pink: #ff85a2;
+            --dark-pink: #f06292;
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 1px solid #333;
+        }
+
+        .hidden { display: none; }
+        h1, h2 { color: var(--pink); margin-top: 0; }
+        p { line-height: 1.5; color: #ccc; }
+
+        button {
+            background: var(--pink);
+            border: none;
+            padding: 12px 25px;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: transform 0.2s, background 0.3s;
+            margin-top: 20px;
+        }
+
+        button:hover { background: var(--dark-pink); transform: scale(1.05); }
+
+        input {
+            padding: 12px;
+            width: 85%;
+            border-radius: 8px;
+            border: 2px solid #333;
+            background: #252525;
+            color: white;
+            margin-top: 15px;
+            font-size: 1rem;
+            outline: none;
+            text-align: center;
+        }
+
+        input:focus { border-color: var(--pink); }
+
+        .hearts { font-size: 1.8rem; margin-bottom: 20px; letter-spacing: 5px; }
+
+        .shake { animation: shake 0.5s; border: 2px solid #ff4d4d !important; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-10px);} 75% {transform: translateX(10px);} }
+
+        ul { text-align: left; font-size: 0.9rem; color: #bbb; }
+        .footer-note { font-size: 0.7rem; color: #777; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="game-shell">
+    
+    <!-- Page 1: Opening -->
+    <div id="screen-opening">
+        <h1>How much do you know Tanmay?</h1>
+        <p>Take the 5-life challenge and prove how well you know me.</p>
+        <button onclick="showScreen('screen-rules')">Let’s take up the test!</button>
+    </div>
+
+    <!-- Page 2: Rules -->
+    <div id="screen-rules" class="hidden">
+        <h2>Game Rules</h2>
+        <ul>
+            <li>❤️ You have <b>5 lives</b> total.</li>
+            <li>❌ Each wrong answer removes <b>1 life</b>.</li>
+            <li>⏱️ You get <b>only 1 attempt</b> per question.</li>
+            <li>🤫 Correct answers are <b>never</b> revealed.</li>
+            <li>💀 0 Lives = Game Over.</li>
+        </ul>
+        <button onclick="showScreen('screen-details')">Proceed</button>
+    </div>
+
+    <!-- Page 3: Details -->
+    <div id="screen-details" class="hidden">
+        <h2>About You</h2>
+        <input type="text" id="userName" placeholder="Your Name">
+        <input type="text" id="userRelation" placeholder="Your Relation to Tanmay">
+        <p class="footer-note">This stays between us. Your score will be saved.</p>
+        <button onclick="startQuiz()">Start Quiz</button>
+    </div>
+
+    <!-- Page 4: Quiz -->
+    <div id="screen-quiz" class="hidden">
+        <div class="hearts" id="heart-container">❤️❤️❤️❤️❤️</div>
+        <p id="q-count" style="color: var(--pink); font-size: 0.8rem; margin:0;">Question 1 of 20</p>
+        <h3 id="question-text" style="min-height: 60px;">Question...</h3>
+        <input type="text" id="answer-input" placeholder="Type your answer..." autocomplete="off">
+        <br>
+        <button onclick="handleAnswerSubmit()">Submit Answer</button>
+    </div>
+
+    <!-- Page 5: End Screen -->
+    <div id="screen-end" class="hidden">
+        <h1 id="end-title"></h1>
+        <p id="end-message"></p>
+        <h2 id="final-score-text"></h2>
+        <p style="font-size: 0.8rem;">Saving results and closing...</p>
+    </div>
+
+    <!-- Page 6: Thank You -->
+    <div id="screen-thankyou" class="hidden">
+        <h1 style="font-size: 4rem; margin-bottom: 10px;">🎉</h1>
+        <h2>Thank You!</h2>
+        <p>I appreciate you taking the test.</p>
+        <p id="timer-text" style="color: var(--pink); font-weight: bold; font-size: 1.2rem;">Closing in 5...</p>
+    </div>
+
+</div>
+
+<script>
+    // --- SUPABASE CONFIG ---
+    const SUPABASE_URL = "https://vjnisfbguakyrqvubkge.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqbmlzZmJndWFreXJxdnVia2dlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNzU3NzcsImV4cCI6MjA5Nzk1MTc3N30.xb-CCfr2XfHs_miV5CspCpqAGro5WEy61Ql9tF9dw7E";
+
+    // --- QUIZ DATA ---
+    const questions = [
+        { q: "What is my favorite song?", a: "Bairan" },
+        { q: "What is my favorite color?", a: "Pink" },
+        { q: "What is my favorite food?", a: "Cheese" },
+        { q: "What is my favorite sport?", a: "Cricket" },
+        { q: "Who is my favorite actor?", a: "Hrithik Roshan" },
+        { q: "What is my favorite subject?", a: "Maths" },
+        { q: "What is my favorite discovery in astronomy?", a: "Black holes" },
+        { q: "What is my favorite number?", a: "6" },
+        { q: "What is my favorite mathematical sequence?", a: "Geometric sequence" },
+        { q: "What is my favorite proof?", a: "Zeta function regularisation" },
+        { q: "What is my favorite science word? (Hint: 45 letters)", a: "pneumonoultramicroscopicsilicovolcanoconiosis" },
+        { q: "Who is my favorite singer?", a: "Shreya Ghoshal" },
+        { q: "What is my second favorite movie?", a: "3 Idiots" },
+        { q: "What is my favorite thyroid type?", a: "Pseudopseudohypoparathyroidism" },
+        { q: "What is my worst fear?", a: "Acrophobia" },
+        { q: "What is my second favorite hobby?", a: "Exploring the history of Egypt" },
+        { q: "What is my favorite cartoon?", a: "Minion" },
+        { q: "Who is my favorite cartoon character?", a: "Psyduck" },
+        { q: "What is my favorite specific drink?", a: "Matcha latte with 3 pumps of sugar" },
+        { q: "What is my favorite video game universe?", a: "Mortal Kombat" }
+    ];
+
+    let currentIdx = 0, lives = 5, score = 0, userName = "", userRelation = "";
+
+    function showScreen(id) {
+        document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function startQuiz() {
+        userName = document.getElementById('userName').value.trim();
+        userRelation = document.getElementById('userRelation').value.trim();
+        if (!userName || !userRelation) return alert("Please tell me who you are first!");
+        showScreen('screen-quiz');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        document.getElementById('q-count').innerText = `Question ${currentIdx + 1} of 20`;
+        document.getElementById('question-text').innerText = questions[currentIdx].q;
+        document.getElementById('answer-input').value = "";
+        document.getElementById('answer-input').focus();
+    }
+
+    function handleAnswerSubmit() {
+        const input = document.getElementById('answer-input');
+        const userAns = input.value.trim().toLowerCase();
+        const correctAns = questions[currentIdx].a.toLowerCase();
+
+        if (userAns === correctAns) {
+            score++;
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            nextStep();
+        } else {
+            lives--;
+            input.classList.add('shake');
+            setTimeout(() => input.classList.remove('shake'), 500);
+            document.getElementById('heart-container').innerText = "❤️".repeat(lives);
+            if (lives <= 0) endGame(false);
+            else nextStep();
+        }
+    }
+
+    function nextStep() {
+        currentIdx++;
+        if (currentIdx < questions.length) loadQuestion();
+        else endGame(true);
+    }
+
+    async function endGame(isWin) {
+        showScreen('screen-end');
+        document.getElementById('end-title').innerText = isWin ? "🎉 You Won!" : "💀 Game Over!";
+        document.getElementById('end-message').innerText = isWin ? "You truly know me!" : "Better luck next time.";
+        document.getElementById('final-score-text').innerText = `${score} / 20`;
+
+        // Send to Supabase
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/quiz_results`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ 
+                    name: userName, 
+                    relation: userRelation, 
+                    score: score + "/20", 
+                    status: lives <= 0 ? "Lost" : "Completed" 
+                })
+            });
+        } catch (e) { console.error("Database Error:", e); }
+
+        // Transition to Thank You after 5 seconds
+        setTimeout(showThankYou, 5000);
+    }
+
+    function showThankYou() {
+        showScreen('screen-thankyou');
+        let timeLeft = 5;
+        const timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer-text').innerText = `Closing in ${timeLeft}...`;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                window.close();
+                // Fallback for browsers that block auto-close
+                document.getElementById('game-shell').innerHTML = "<h1>Done!</h1><p>You can now safely close this tab.</p>";
+            }
+        }, 1000);
+    }
+</script>
+</body>
+</html>
